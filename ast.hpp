@@ -10,6 +10,7 @@
 #define _AST_H_
 
 #include <sstream>
+#include <llvm/ADT/ImmutableMap.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -112,18 +113,21 @@ namespace ast {
     const Expression(const Kind kind)
     : _kind(kind) {}
     Kind kind() const;
+    const Expression *replace(const std::string variable, const Expression *expression) const;
+    const Expression *evaluate() const;
     virtual void write(std::ostringstream *stream) const = 0;
     virtual llvm::Value *generateCode(const llvm::LLVMContext *context) const = 0;
   };
 #pragma mark - Variable
   class Variable: public Expression {
-    const std::string name;
+    const std::string _name;
   public:
     const Variable(const std::string name)
-    : Expression(ExpressionKindVariable), name(name) {}
+    : Expression(ExpressionKindVariable), _name(name) {}
     static bool classof(const Expression *expression) {
       return expression->kind() == Expression::ExpressionKindVariable;
     };
+    const std::string name() const;
     virtual void write(std::ostringstream *stream) const;
     virtual llvm::Value *generateCode(const llvm::LLVMContext *context) const;
   };
@@ -141,44 +145,67 @@ namespace ast {
   };
 #pragma mark - Lambda
   class Lambda: public Expression {
-    const std::string argument;
-    const Expression *body;
+    const std::string _argument;
+    const Expression *_body;
   public:
     const Lambda(const std::string argument, const Expression *body)
-    : Expression(ExpressionKindLambda), argument(argument), body(body) {}
+    : Expression(ExpressionKindLambda), _argument(argument), _body(body) {}
     static bool classof(const Expression *expression) {
       return expression->kind() == Expression::ExpressionKindLambda;
     };
+    const std::string argument() const;
+    const Expression *body() const;
     virtual void write(std::ostringstream *stream) const;
     virtual llvm::Value *generateCode(const llvm::LLVMContext *context) const;
   };
 #pragma mark - Application
   class Application: public Expression {
-    const Expression *lambda;
-    const Expression *argument;
+    const Expression *_lambda;
+    const Expression *_argument;
   public:
     const Application(const Expression *lambda, const Expression *argument)
-    : Expression(ExpressionKindApplication), lambda(lambda), argument(argument) {}
+    : Expression(ExpressionKindApplication), _lambda(lambda), _argument(argument) {}
     static bool classof(const Expression *expression) {
       return expression->kind() == Expression::ExpressionKindApplication;
     };
+    const Expression *lambda() const;
+    const Expression *argument() const;
     virtual void write(std::ostringstream *stream) const;
     virtual llvm::Value *generateCode(const llvm::LLVMContext *context) const;
   };
 #pragma mark - Let
   class Let: public Expression {
-    const std::string name;
-    const Expression *value;
-    const Expression *continuation;
+    const std::string _name;
+    const Expression *_value;
+    const Expression *_continuation;
   public:
     const Let(const std::string name, const Expression *value, const Expression *continuation)
-    : Expression(ExpressionKindLet), name(name), value(value), continuation(continuation) {}
+    : Expression(ExpressionKindLet), _name(name), _value(value), _continuation(continuation) {}
     static bool classof(const Expression *expression) {
       return expression->kind() == Expression::ExpressionKindLet;
     };
+    const std::string name() const;
+    const Expression *value() const;
+    const Expression *continuation() const;
     virtual void write(std::ostringstream *stream) const;
     virtual llvm::Value *generateCode(const llvm::LLVMContext *context) const;
   };
 }
+
+#pragma mark - Context
+using namespace ast;
+class Context {
+  typedef std::pair<const Expression *, const type::Type *> ValueAndType;
+  typedef llvm::ImmutableMap<const Expression *, const ValueAndType *> Bindings;
+  const Bindings *_context;
+public:
+  const Context(const Bindings *context)
+  : _context(context) {}
+  const Context();
+  const Context(const Expression *expression);
+  const Context(const Context *context, const Expression *expression);
+  const type::Type *type(const Expression *expression) const;
+  const Expression *value(const Expression *expression) const;
+};
 
 #endif /* _AST_H_ */

@@ -109,9 +109,71 @@ namespace ast {
   Expression::Kind Expression::kind() const {
     return _kind;
   }
+  const Expression *Expression::replace(std::string variable, const Expression *expression) const {
+    switch (kind()) {
+    case ExpressionKindVariable: {
+      if (llvm::cast<Variable>(expression)->name() == variable) {
+	return expression;
+      } else {
+	return this;
+      }
+    }
+    case ExpressionKindInteger: {
+      return this;
+    }
+    case ExpressionKindLambda: {
+      const Lambda *lambda = llvm::cast<Lambda>(this);
+      if (variable == lambda->argument()) {
+	return lambda;
+      } else {
+	return new const Lambda(lambda->argument(), lambda->body()->replace(variable, expression));
+      }
+    }
+    case ExpressionKindApplication: {
+      const Application *application = llvm::cast<Application>(this);
+      return new const Application(application->lambda()->replace(variable, expression),
+				   application->argument()->replace(variable, expression));
+    }
+    case ExpressionKindLet: {
+      const Let *let = llvm::cast<Let>(this);
+      return new const Let(let->name(), 
+			   let->value()->replace(variable, expression),
+			   let->continuation()->replace(variable, expression));
+    }
+    }
+  }
+  const Expression *Expression::evaluate() const {
+    switch (kind()) {
+    case ExpressionKindVariable:
+      return this;
+    case ExpressionKindInteger:
+      return this;
+    case ExpressionKindLambda:
+      return this;
+    case ExpressionKindApplication: {
+      const Application *application = llvm::cast<Application>(this);
+      const Expression *head = application->lambda()->evaluate();
+      switch (head->kind()) {
+      case ExpressionKindLambda: {
+	const Lambda *lambda = llvm::cast<Lambda>(head);
+	return lambda->body()->replace(lambda->argument(), application->argument())->evaluate();
+      }
+      default:
+	return new const Variable("Error: invalid application");
+      }
+    }
+    case ExpressionKindLet: {
+      const Let *let = llvm::cast<Let>(this);
+      return let->continuation()->replace(let->name(), let->value())->evaluate();
+    }
+    }
+  }
 #pragma mark - Variable
+  const std::string Variable::name() const {
+    return _name;
+  }
   void Variable::write(std::ostringstream *stream) const {
-    *stream << name;
+    *stream << name();
   }
   llvm::Value *Variable::generateCode(const llvm::LLVMContext *context) const {
     return DebugConstant;
@@ -124,31 +186,52 @@ namespace ast {
     return DebugConstant;
   }
 #pragma mark - Lambda
+  const std::string Lambda::argument() const {
+    return _argument;
+  }
+  const Expression *Lambda::body() const {
+    return _body;
+  }
   void Lambda::write(std::ostringstream *stream) const {
-    *stream << "(fun " << argument << " -> ";
-    body->write(stream);
+    *stream << "(fun " << argument() << " -> ";
+    body()->write(stream);
     *stream << ")";
   }
   llvm::Value *Lambda::generateCode(const llvm::LLVMContext *context) const {
     return DebugConstant;
   }
 #pragma mark - Application
+  const Expression *Application::lambda() const {
+    return _lambda;
+  }
+  const Expression *Application::argument() const {
+    return _argument;
+  }
   void Application::write(std::ostringstream *stream) const {
     *stream << "(";
-    lambda->write(stream);
+    lambda()->write(stream);
     *stream << " ";
-    argument->write(stream);
+    argument()->write(stream);
     *stream << ")";
   }
   llvm::Value *Application::generateCode(const llvm::LLVMContext *context) const {
     return DebugConstant;
   }
 #pragma mark - Let
+  const std::string Let::name() const {
+    return _name;
+  }
+  const Expression *Let::value() const {
+    return _value;
+  }
+  const Expression *Let::continuation() const {
+    return _continuation;
+  }
   void Let::write(std::ostringstream *stream) const {
-    *stream << "let " << name << " = ";
-    value->write(stream);
+    *stream << "let " << name() << " = ";
+    value()->write(stream);
     *stream << "; ";
-    continuation->write(stream);
+    continuation()->write(stream);
   }
   llvm::Value *Let::generateCode(const llvm::LLVMContext *context) const {
     return DebugConstant;
