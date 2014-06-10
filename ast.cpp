@@ -9,7 +9,6 @@
 #include "ast.hpp"
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/Support/Casting.h>
 
 namespace type {
 #pragma mark - Type
@@ -112,7 +111,7 @@ namespace ast {
   const Expression *Expression::replace(std::string variable, const Expression *expression) const {
     switch (kind()) {
     case ExpressionKindVariable: {
-      if (llvm::cast<Variable>(expression)->name() == variable) {
+      if (llvm::cast<Variable>(this)->name() == variable) {
 	return expression;
       } else {
 	return this;
