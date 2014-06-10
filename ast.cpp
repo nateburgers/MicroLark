@@ -26,12 +26,18 @@ namespace type {
   const Type *Error::evaluate() const {
     return this;
   }
+  bool Error::operator==(const Type *type) const {
+    return llvm::isa<Error>(type);
+  }
 #pragma mark - Integer
   void Integer::write(std::ostringstream *stream) const {
     *stream << "Integer";
   }
   const Type *Integer::evaluate() const {
     return new Integer();
+  }
+  bool Integer::operator==(const Type *type) const {
+    return llvm::isa<Integer>(type);
   }
 #pragma mark - Lambda
   const Type *Lambda::operand() const {
@@ -50,6 +56,15 @@ namespace type {
   const Type *Lambda::evaluate() const {
     return this;
   }
+  bool Lambda::operator==(const Type *type) const {
+    if (llvm::isa<Lambda>(type)) {
+      const Lambda *lambda = llvm::cast<Lambda>(type);
+      return lambda->operand() == operand()
+	&& lambda->result() == result();
+    } else {
+      return false;
+    }
+  }
 #pragma mark - Application
   const Type *Application::operation() const {
     return _operation;
@@ -66,9 +81,23 @@ namespace type {
   }
   const Type *Application::evaluate() const {
     if (llvm::isa<Lambda>(operation())) {
-      return llvm::cast<Lambda>(operation())->result(); // FIXME: do real type checking
+      const Lambda *lambda = llvm::cast<Lambda>(operation());
+      if (lambda->operand() == operand()) {
+	return lambda->result();
+      } else {
+	return new const Error("Parameter type mismatch");
+      }
     } else {
-      return new const Error("Invalid Application");
+      return new const Error("Type not invocable");
+    }
+  }
+  bool Application::operator==(const Type *type) const {
+    if (llvm::isa<Application>(type)) {
+      const Application *application = llvm::cast<Application>(type);
+      return application->operation() == operation()
+	&& application->operand() == operand();
+    } else {
+      return false;
     }
   }
 }

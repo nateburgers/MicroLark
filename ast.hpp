@@ -15,7 +15,6 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
-// TODO: implement operator== for type checks
 namespace type {
 #pragma mark - Type
   class Type {
@@ -34,6 +33,7 @@ namespace type {
     Kind kind() const;
     virtual void write(std::ostringstream *stream) const = 0;
     virtual const Type *evaluate() const = 0;
+    virtual bool operator==(const Type *type) const = 0;
   };
 #pragma mark - Error
   class Error: public Type {
@@ -47,6 +47,7 @@ namespace type {
     const std::string message() const;
     virtual void write(std::ostringstream *stream) const;
     virtual const Type *evaluate() const;
+    virtual bool operator==(const Type *type) const;
   };
 #pragma mark - Integer
   class Integer: public Type {
@@ -58,6 +59,7 @@ namespace type {
     };
     virtual void write(std::ostringstream *stream) const;
     virtual const Type *evaluate() const;
+    virtual bool operator==(const Type *type) const;
   };
 #pragma mark - Lambda
   class Lambda: public Type {
@@ -73,6 +75,7 @@ namespace type {
     const Type *result() const;
     virtual void write(std::ostringstream *stream) const;
     virtual const Type *evaluate() const;
+    virtual bool operator==(const Type *type) const;
   };
 #pragma mark - Application
   class Application: public Type {
@@ -88,6 +91,7 @@ namespace type {
     const Type *operand() const;
     virtual void write(std::ostringstream *stream) const;
     virtual const Type *evaluate() const;
+    virtual bool operator==(const Type *type) const;
   };
 }
 
